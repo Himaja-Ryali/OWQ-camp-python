@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>CodeQuest: My Lab</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/blockly@9.0.0/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly@9.0.0/blocks_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@9.0.0/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@9.0.0/msg/en.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
+        #blocklyDiv {
+            height: calc(100vh - 200px);
+            width: 100%;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+        #outputCode {
+            height: 100%;
+            overflow-y: auto;
+            background-color: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .tab-button {
+            @apply px-6 py-3 rounded-full text-lg font-semibold transition-all duration-300 ease-in-out shadow-md;
+            @apply bg-blue-500 text-white hover:bg-blue-600;
+        }
+        .tab-button.active {
+            @apply bg-purple-600 text-white shadow-lg transform scale-105;
+        }
+        .game-iframe-container {
+            width: 100%;
+            height: calc(100vh - 120px - 60px);
+            flex-grow: 1;
+        }
+        .game-iframe {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+  
+</head>
+
+<body class="bg-gray-100 text-gray-800 flex flex-col h-screen p-4">
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-xl shadow-lg mb-4">
+        <h1 class="text-3xl font-bold text-center">CodeQuest: Creator Lab</h1>
+    </header>
+
+    <div class="flex flex-wrap justify-center gap-4 mb-4">
+        <button id="showMyPlaygroundBtn" class="tab-button active">My Coding Den</button>
+        <button id="showMazeBtn" class="tab-button">Maze Runner</button>
+        <button id="showTurtleBtn" class="tab-button">CodeSketch</button>
+        <button id="showMovieBtn" class="tab-button">Match & Move</button>
+    </div>
+
+    <main class="flex-grow flex flex-col gap-4">
+        <div id="myPlaygroundSection" class="flex flex-col md:flex-row flex-grow gap-4">
+            <div class="md:w-3/5 w-full flex flex-col bg-white p-4 rounded-xl shadow-md">
+                <h2 class="text-xl font-semibold mb-2">Create Something Awesome – Drag Blocks Here:</h2>
+                <div id="blocklyDiv" class="flex-grow"></div>
+                <div class="mt-4 flex justify-center gap-4">
+                    <button id="generateCodeBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105">Generate Code</button>
+                    <button id="runProgramBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105">Run Program</button>
+                    <button id="saveWorkspaceBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105">Save Workspace</button>
+                    <button id="loadWorkspaceBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105">Load Workspace</button>
+                </div>
+            </div>
+
+            <div class="md:w-2/5 w-full flex flex-col bg-white p-4 rounded-xl shadow-md">
+                <h2 class="text-xl font-semibold mb-2">Textual Source Code:</h2>
+                <pre id="outputCode" class="flex-grow">Click 'Generate Code' to see source code here!</pre>
+            </div>
+        </div>
+
+        <div id="gameSection" class="game-iframe-container hidden">
+            <iframe id="gameFrame" class="game-iframe" frameborder="0"></iframe>
+        </div>
+    </main>
+
+    <script>
+        // --- Custom Blocks ---
+        // Block for printing messages to output
+        Blockly.Blocks['print_message'] = {
+            init: function() {
+                this.appendValueInput("MESSAGE").setCheck(null).appendField("print");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(160); // Blueish color
+                this.setTooltip("Prints a message to the program output area.");
+                this.setHelpUrl("");
+            }
+        };
+        // JavaScript generator for the print_message block
+        Blockly.JavaScript['print_message'] = function(block) {
+            const value = Blockly.JavaScript.valueToCode(block, 'MESSAGE', Blockly.JavaScript.ORDER_ATOMIC);
+            // This will generate console.log(value); which will then be caught by our sandboxed console.log
+            return 'console.log(' + value + ');\n';
+        };
+
+        // Block for repeating actions N times
+        Blockly.Blocks['repeat_times'] = {
+            init: function() {
+                this.appendDummyInput().appendField("repeat").appendField(new Blockly.FieldNumber(1), "TIMES").appendField("times");
+                this.appendStatementInput("DO").setCheck(null).appendField("do");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(210); // Greenish color
+                this.setTooltip("Repeats a set of actions a specified number of times.");
+                this.setHelpUrl("");
+            }
+        };
+        // JavaScript generator for the repeat_times block
+        Blockly.JavaScript['repeat_times'] = function(block) {
+            const times = block.getFieldValue('TIMES');
+            const branch = Blockly.JavaScript.statementToCode(block, 'DO');
+            return `for (let i = 0; i < ${times}; i++) {\n${branch}}\n`;
+        };
+
+        // --- Blockly Workspace Setup ---
+        let workspace; // Declare workspace globally
+
+        window.onload = function() {
+            const toolbox = `
+                <xml xmlns="https://developers.google.com/blockly/xml" id="toolbox" style="display: none">
+                    <category name="Logic" colour="%{BKY_LOGIC_HUE}">
+                        <block type="controls_if"></block>
+                        <block type="logic_compare"></block>
+                        <block type="logic_operation"></block>
+                        <block type="logic_negate"></block>
+                        <block type="logic_boolean"></block>
+                        <block type="logic_null"></block>
+                        <block type="logic_ternary"></block>
+                    </category>
+
+                    <category name="Loops" colour="%{BKY_LOOPS_HUE}">
+                        <block type="controls_repeat_ext">
+                            <value name="TIMES">
+                                <shadow type="math_number">
+                                    <field name="NUM">10</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        
+                        <block type="controls_whileUntil"></block>
+                        <block type="controls_for">
+                            <field name="VAR">i</field>
+                            <value name="FROM">
+                                <shadow type="math_number">
+                                    <field name="NUM">1</field>
+                                </shadow>
+                            </value>
+                            <value name="TO">
+                                <shadow type="math_number">
+                                    <field name="NUM">10</field>
+                                </shadow>
+                            </value>
+                            <value name="BY">
+                                <shadow type="math_number">
+                                    <field name="NUM">1</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        <block type="controls_forEach"></block>
+                        <block type="controls_flow_statements"></block>
+                    </category>
+
+                    <category name="Math" colour="%{BKY_MATH_HUE}">
+                        <block type="math_number"></block>
+                        <block type="math_arithmetic"></block>
+                        <block type="math_single"></block>
+                        <block type="math_trig"></block>
+                        <block type="math_constant"></block>
+                        <block type="math_number_property"></block>
+                        <block type="math_round"></block>
+                        <block type="math_on_list"></block>
+                        <block type="math_modulo"></block>
+                        <block type="math_constrain">
+                            <value name="LOW">
+                                <shadow type="math_number">
+                                    <field name="NUM">1</field>
+                                </shadow>
+                            </value>
+                            <value name="HIGH">
+                                <shadow type="math_number">
+                                    <field name="NUM">100</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        <block type="math_random_int">
+                            <value name="FROM">
+                                <shadow type="math_number">
+                                    <field name="NUM">1</field>
+                                </shadow>
+                            </value>
+                            <value name="TO">
+                                <shadow type="math_number">
+                                    <field name="NUM">100</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        <block type="math_random_float"></block>
+                        <block type="math_atan2"></block>
+                    </category>
+
+                    <category name="Text" colour="%{BKY_TEXTS_HUE}">
+                        <block type="text"></block>
+                        <block type="text_join"></block>
+                        <block type="text_append">
+                            <field name="VAR">item</field>
+                        </block>
+                        <block type="text_length"></block>
+                        <block type="text_isEmpty"></block>
+                        <block type="text_indexOf"></block>
+                        <block type="text_charAt"></block>
+                        <block type="text_getSubstring"></block>
+                        <block type="text_changeCase"></block>
+                        <block type="text_trim"></block>
+                        <block type="text_print"></block> <!-- Default Blockly print block (uses console.log) -->
+                        <block type="print_message"></block> <!-- Our custom print block -->
+                        <block type="text_prompt_ext"></block>
+                    </category>
+
+                    <category name="Lists" colour="%{BKY_LISTS_HUE}">
+                        <block type="lists_create_empty"></block>
+                        <block type="lists_create_with"></block>
+                        <block type="lists_repeat">
+                            <value name="NUM">
+                                <shadow type="math_number">
+                                    <field name="NUM">5</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        <block type="lists_length"></block>
+                        <block type="lists_isEmpty"></block>
+                        <block type="lists_indexOf"></block>
+                        <block type="lists_getIndex"></block>
+                        <block type="lists_setIndex"></block>
+                        <block type="lists_getSublist"></block>
+                        <block type="lists_split"></block>
+                        <block type="lists_sort"></block>
+                    </category>
+
+                    <category name="Colour" colour="%{BKY_COLOUR_HUE}">
+                        <block type="colour_picker"></block>
+                        <block type="colour_random"></block>
+                        <block type="colour_rgb">
+                            <value name="RED">
+                                <shadow type="math_number">
+                                    <field name="NUM">100</field>
+                                </shadow>
+                            </value>
+                            <value name="GREEN">
+                                <shadow type="math_number">
+                                    <field name="NUM">50</field>
+                                </shadow>
+                            </value>
+                            <value name="BLUE">
+                                <shadow type="math_number">
+                                    <field name="NUM">0</field>
+                                </shadow>
+                            </value>
+                        </block>
+                        <block type="colour_blend">
+                            <value name="COLOUR1">
+                                <shadow type="colour_picker">
+                                    <field name="COLOUR">#ff0000</field>
+                                </shadow>
+                            </value>
+                            <value name="COLOUR2">
+                                <shadow type="colour_picker">
+                                    <field name="COLOUR">#3333ff</field>
+                                </shadow>
+                            </value>
+                            <value name="RATIO">
+                                <shadow type="math_number">
+                                    <field name="NUM">0.5</field>
+                                </shadow>
+                            </value>
+                        </block>
+                    </category>
+
+                    <category name="Variables" colour="%{BKY_VARIABLES_HUE}" custom="VARIABLE"></category>
+                    <category name="Functions" colour="%{BKY_PROCEDURES_HUE}" custom="PROCEDURE"></category>
+                </xml>
+            `;
+
+            workspace = Blockly.inject('blocklyDiv', {
+                media: 'https://unpkg.com/blockly@9.0.0/media/',
+                toolbox: toolbox,
+                zoom: {
+                    controls: true,
+                    wheel: true,
+                    startScale: 1.0,
+                    maxScale: 3,
+                    minScale: 0.3,
+                    scaleSpeed: 1.2
+                },
+                trashcan: true,
+                scrollbars: true
+            });
+
+            // Function to generate code and display it
+            function generateCode() {
+                var code = Blockly.JavaScript.workspaceToCode(workspace);
+                document.getElementById('outputCode').textContent = code;
+            }
+
+            // Function to save the current Blockly workspace to the browser's local storage
+            function saveWorkspace() {
+                const xml = Blockly.Xml.workspaceToDom(workspace);
+                const xmlText = Blockly.Xml.domToText(xml);
+                localStorage.setItem('blocklyWorkspace', xmlText);
+                document.getElementById('outputCode').textContent += "Workspace saved!\n";
+                console.log('My Playground workspace saved to local storage (also logged to browser console).');
+            }
+
+            // Function to load a Blockly workspace from the browser's local storage
+            function loadWorkspace() {
+                const xmlText = localStorage.getItem('blocklyWorkspace');
+                if (xmlText) {
+                    workspace.clear(); // Clear any existing blocks in the workspace
+                    const xml = Blockly.Xml.textToDom(xmlText);
+                    Blockly.Xml.domToWorkspace(xml, workspace);
+                    document.getElementById('outputCode').textContent += "Workspace loaded!\n";
+                    console.log('My Playground workspace loaded from local storage (also logged to browser console).');
+                } else {
+                    document.getElementById('outputCode').textContent += "No saved workspace found.\n";
+                    console.log('No saved workspace found in local storage for My Playground (also logged to browser console).');
+                }
+            }
+
+            // --- Function to run the generated Blockly code and display output (Robust Version) ---
+            function runProgram() {
+                const outputElement = document.getElementById('outputCode');
+                outputElement.textContent = ''; // Clear previous output
+
+                const code = Blockly.JavaScript.workspaceToCode(workspace);
+
+                // Create a sandboxed environment for eval to capture console.log and alert
+                const wrappedCode = `
+                    let _tempOutputBuffer = "";
+                    const console = {
+                        log: (...args) => { _tempOutputBuffer += args.join(' ') + '\\n'; },
+                        warn: (...args) => { _tempOutputBuffer += 'WARNING: ' + args.join(' ') + '\\n'; },
+                        error: (...args) => { _tempOutputBuffer += 'ERROR: ' + args.join(' ') + '\\n'; },
+                        info: (...args) => { _tempOutputBuffer += 'INFO: ' + args.join(' ') + '\\n'; },
+                        debug: (...args) => { _tempOutputBuffer += 'DEBUG: ' + args.join(' ') + '\\n'; },
+                    };
+                    const alert = (message) => { _tempOutputBuffer += 'Alert: ' + message + '\\n'; };
+
+                    // The actual Blockly generated code goes here
+                    ${code}
+
+                    return _tempOutputBuffer; // Return the collected output
+                `;
+
+                try {
+                    // Execute the generated JavaScript code within the sandboxed context
+                    const programOutput = eval(wrappedCode);
+                    outputElement.textContent = programOutput; // Display the collected output
+                } catch (e) {
+                    outputElement.textContent += 'Execution Error: ' + e.message + '\n'; // Display error message
+                    console.error('Error running program:', e); // Log full error to the browser's developer console
+                }
+                // No need for finally to restore, as original console/alert were not globally touched.
+            }
+
+
+            // Attach event listeners to buttons
+            document.getElementById('generateCodeBtn').addEventListener('click', generateCode);
+            document.getElementById('runProgramBtn').addEventListener('click', runProgram);
+            document.getElementById('saveWorkspaceBtn').addEventListener('click', saveWorkspace);
+            document.getElementById('loadWorkspaceBtn').addEventListener('click', loadWorkspace);
+
+
+            // --- Tab Switching Logic ---
+            const myPlaygroundSection = document.getElementById('myPlaygroundSection');
+            const gameSection = document.getElementById('gameSection');
+            const gameFrame = document.getElementById('gameFrame');
+
+            const showMyPlaygroundBtn = document.getElementById('showMyPlaygroundBtn');
+            const showMazeBtn = document.getElementById('showMazeBtn');
+            const showTurtleBtn = document.getElementById('showTurtleBtn');
+            const showMovieBtn = document.getElementById('showMovieBtn');
+
+            function showSection(sectionToShow, activeButton) {
+                // Hide all sections first
+                myPlaygroundSection.classList.add('hidden');
+                gameSection.classList.add('hidden');
+
+                // Show the requested section
+                sectionToShow.classList.remove('hidden');
+
+                // Deactivate all tab buttons
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                activeButton.classList.add('active');
+
+                // Resize Blockly workspace when its section becomes visible
+                if (sectionToShow === myPlaygroundSection) {
+                    Blockly.svgResize(workspace);
+                }
+            }
+
+            showMyPlaygroundBtn.addEventListener('click', () => {
+                showSection(myPlaygroundSection, showMyPlaygroundBtn);
+            });
+
+            showMazeBtn.addEventListener('click', () => {
+                showSection(gameSection, showMazeBtn);
+                gameFrame.src = 'https://blockly-games.appspot.com/maze';
+            });
+
+            showTurtleBtn.addEventListener('click', () => {
+                showSection(gameSection, showTurtleBtn);
+                gameFrame.src = 'https://blockly-games.appspot.com/turtle';
+            });
+
+            showMovieBtn.addEventListener('click', () => {
+                showSection(gameSection, showMovieBtn);
+                gameFrame.src = 'https://blockly-games.appspot.com/movie';
+            });
+
+            // Initially show My Playground and try to load a saved workspace
+            showSection(myPlaygroundSection, showMyPlaygroundBtn);
+            loadWorkspace(); // Attempt to load workspace on page load
+        };
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CodeQuest: My Lab</title>
+  <script src="https://unpkg.com/blockly@9.0.0/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@9.0.0/blocks_compressed.js"></script>
+  <script src="https://unpkg.com/blockly@9.0.0/javascript_compressed.js"></script>
+  <script src="https://unpkg.com/blockly@9.0.0/msg/en.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #blocklyDiv {
+      height: 60vh;
+      width: 100%;
+    }
+    #controls {
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    #outputCode {
+      height: 30vh;
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+
+
+
+
+<script>
+  // Define custom print block BEFORE Blockly is injected
+  Blockly.Blocks['print_message'] = {
+    init: function() {
+      this.appendValueInput("MESSAGE")
+          .setCheck(null)
+          .appendField("print");
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(160);
+      this.setTooltip("Print a message");
+    }
+  };
+
+  Blockly.JavaScript['print_message'] = function(block) {
+    var value = Blockly.JavaScript.valueToCode(block, 'MESSAGE', Blockly.JavaScript.ORDER_ATOMIC);
+    return 'console.log(' + value + ');\n';
+  };
+
+
+  // Button: Generate Code
+  document.getElementById('generateCodeBtn').addEventListener('click', () => {
+    const code = Blockly.JavaScript.workspaceToCode(workspace);
+    document.getElementById('outputCode').textContent = code;
+  });
+
+  // Button: Run Program
+  document.getElementById('runProgramBtn').addEventListener('click', () => {
+    const outputElement = document.getElementById('outputCode');
+    outputElement.textContent = ''; // Clear previous
+
+    const originalConsoleLog = console.log;
+    console.log = function(...args) {
+      outputElement.textContent += args.join(' ') + '\n';
+    };
+
+    try {
+      const code = Blockly.JavaScript.workspaceToCode(workspace);
+      eval(code);
+    } catch (e) {
+      outputElement.textContent += 'Error: ' + e + '\n';
+    } finally {
+      console.log = originalConsoleLog; // Restore
+    }
+  });
+</script>
+
+</body>
+</html>
