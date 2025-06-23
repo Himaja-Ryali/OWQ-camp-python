@@ -1,4 +1,4 @@
-# OWQ-camp-python
+# One World Quest– Python Coding Lab – Learn by Doing
 This is a custom-built, interactive coding website inspired by Blockly, designed specifically for young learners enrolled in the One World Quest Camp. The platform introduces children to the world of programming through a fun and visual drag-and-drop interface, helping them build foundational skills in logic, problem-solving, and creativity.
 
 In addition to Blockly-style visual coding, the platform also features a Python Practice Lab – a beginner-friendly coding space where kids can experiment with Python syntax and run small programs in a safe, guided environment.
